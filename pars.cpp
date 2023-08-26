@@ -5,6 +5,7 @@
 #include <map>
 #include <vector>
 #include <algorithm>
+#include <unistd.h>
 
 class location
 {
@@ -18,8 +19,19 @@ class location
         std::string index;
         std::string _return;
         std::string alias;
-        std::string cgi1;
-        std::string cgi2;
+        std::map<std::string, std::string> cgi;
+        void    print()
+        {
+            std::cout << NAME << std::endl;
+            std::cout << "root :\n" << root << std::endl;
+            std::cout << "autoindex :\n" << autoindex << std::endl;
+            std::cout << "POST :\n" << POST << std::endl;
+            std::cout << "GET :\n" << GET << std::endl;
+            std::cout << "DELETE :\n" << DELETE << std::endl;
+            std::cout << "index :\n" << index << std::endl;
+            std::cout << "return :\n" << _return << std::endl;
+            std::cout << "alias :\n" << alias << std::endl;
+        }
 };
 
 
@@ -34,7 +46,40 @@ class Server
         std::string  root;
         std::string  index;
         std::vector<location>locations;
+        void print()
+        {
+            std::cout << "listen :"<< std::endl;
+            std::vector<u_int16_t>::iterator iter = listen.begin();
+            for(iter; iter < listen.end(); iter++)
+                std::cout << *iter << " ";
+            std::cout << std::endl;
+            std::cout << "host : \n" << host << std::endl;
+            std::cout << "server_name :\n" << server_name<< std::endl;
+            std::map<int , std::string>::iterator it = error_page.begin();
+            std::cout << "error_page :\n";
+	        while (it != error_page.end())
+	        {
+                std::cout << it->first << " :: " << it->second << std::endl;
+                it++;
+            }
+            std::cout << "max_body :\n" << max_body << std::endl;
+            std::cout << "root :\n" << root << std::endl;
+            std::cout << "index :\n" << index << std::endl;
+            std::vector<location>::iterator itr = locations.begin();
+            for(itr; itr < locations.end(); itr++)
+            {
+                std::cout << "loactions**************************** :\n";
+                itr->print();
+            }
+        }
 };
+
+std::string check_path(std::string path)
+{
+    // if(access(path.c_str(), F_OK) != 0)
+    //     exit(2);
+    return(path);
+}
 
 std::string removeSpaces(const std::string &input) 
 {
@@ -45,6 +90,8 @@ std::string removeSpaces(const std::string &input)
 
 location* get_location(std::ifstream &Myfile, std::string &line)
 {
+    if(line.empty())
+        exit(101);
     location *local = new location;
     local->NAME = line;
     bool x = 0;
@@ -60,7 +107,7 @@ location* get_location(std::ifstream &Myfile, std::string &line)
         else if(x == 0 && token[0] != '{')
             exit(1);
         else if(x == 1 && token == "root")
-            local->root = line;
+            local->root = check_path(line);
         else if(x == 1 && token == "autoindex")
         {
             if(line == "on")
@@ -98,15 +145,17 @@ location* get_location(std::ifstream &Myfile, std::string &line)
                 exit(1);
         }
         else if(x == 1 && token == "index")
-            local->index = line;
+            local->index = check_path(line);
         else if(x == 1 && token == "return")
-            local->_return = line;
+            local->_return = check_path(line);
         else if(x == 1 && token == "alias")
-            local->alias = line;
-        else if(x == 1 && token == "cgi1")
-            local->cgi1 = line;
+            local->alias = check_path(line);
+        // else if(x == 1 && token == "cgi")
+        //     local->cgi.insert();
         else if (x == 1 && line.find("}") != std::string::npos) 
             break;
+        else
+            exit(102);
     }
     return (local);
 }
@@ -117,12 +166,12 @@ int    check_listen(std::string  port)
     while(port[i])
     {
         if(!isdigit(port[i++]))
-            exit(1);
+            exit(17);
     }
     if(port.length() > 6)
-        exit(1);
+        exit(19);
     if(atoi(port.c_str()) > 65335 || atoi(port.c_str()) < 0)
-        exit(1);
+        exit(18);
     return atoi(port.c_str());
 }
 
@@ -131,10 +180,10 @@ int     check_http_code(std::string code)
     int i= -1;
     while(code[++i])
         if(!isdigit(code[i]))
-            exit(1);
+            exit(88);
     int x = atoi(code.c_str());
     if(x < 0)
-        exit(1);
+        exit(99);
     return(x);
 }
 
@@ -176,6 +225,7 @@ int max_body(std::string body)
     return atoi(body.c_str());
 }
 
+
 std::vector<Server> mainf(int ac, char **av)
 {
     std::vector<Server> servers;
@@ -190,11 +240,8 @@ std::vector<Server> mainf(int ac, char **av)
                 line.erase(line.find_last_not_of(" \t") + 1);
                 if (line.empty() || line[0] == '#')
                     continue;
-                std::istringstream iss(line);
                 std::string token;
-                iss >> token;
-                std::getline(iss, line);
-                if (token == "server{") 
+                if (line == "server{") 
                 {
                     Server S1;
                     while (std::getline(Myfile, line)) 
@@ -220,15 +267,15 @@ std::vector<Server> mainf(int ac, char **av)
                         else if(token == "max_body")
                             S1.max_body = max_body(line);
                         else if(token == "root")
-                            S1.root = line;
+                            S1.root = check_path(line);
                         else if(token == "index")
-                            S1.index = line;
+                            S1.index = check_path(line);
                         else if(token == "location")
                             S1.locations.push_back(*get_location(Myfile , line));
                         else if (line == "};") 
                             break;
                         else
-                            exit(1);
+                            exit(3);
                     }
                     if (line != "};") 
                     {
@@ -238,24 +285,19 @@ std::vector<Server> mainf(int ac, char **av)
                     servers.push_back(S1);
                 }
                 else
-                    exit(1);
-
-
+                    exit(5);
             }    
         }
+        else 
+            exit(6);
     }
         return(servers);
 }
 int main(int ac, char **av)
 {
     std::vector<Server> tab = mainf(ac, av);
-    int i = 0;
-    while (i < tab.size())
-    {
-        ta
-    }
+    tab[0].print();
 }
-
 
 
 
